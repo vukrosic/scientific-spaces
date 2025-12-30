@@ -5,7 +5,7 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { formatDate } from 'date-fns';
 import Link from 'next/link';
-import { Calendar, User, ChevronLeft, Share2 } from 'lucide-react';
+import { Calendar, User, ChevronLeft, Share2, Info } from 'lucide-react';
 
 export async function generateStaticParams() {
     const posts = getAllPostSlugs();
@@ -67,6 +67,15 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
                         <Share2 className="w-5 h-5" />
                     </button>
                 </div>
+
+                {post.credit && (
+                    <div className="mt-8 p-4 rounded-xl bg-primary/5 border border-primary/10 flex gap-3 items-start">
+                        <Info className="w-5 h-5 text-primary mt-0.5" />
+                        <p className="text-sm text-foreground/80 italic">
+                            {post.credit}
+                        </p>
+                    </div>
+                )}
             </header>
 
             <div className="markdown-content prose prose-invert prose-lg max-w-none">

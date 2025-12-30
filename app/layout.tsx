@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
   title: "Scientific Spaces | Deep Learning & Mathematics",
@@ -13,8 +14,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="antialiased">
-        {children}
+      <body className="antialiased bg-black text-foreground min-h-screen">
+        <Navbar />
+        <main className="pt-20">
+          {children}
+        </main>
       </body>
     </html>
   );

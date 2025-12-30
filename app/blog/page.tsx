@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getSortedPostsData } from '@/lib/blog';
 import { formatDate } from 'date-fns';
-import { Calendar, User, ArrowRight, Tag } from 'lucide-react';
+import { Calendar, User, ArrowRight, Info } from 'lucide-react';
 
 export default function BlogIndex() {
     const allPostsData = getSortedPostsData();
@@ -37,6 +37,13 @@ export default function BlogIndex() {
                             <p className="text-foreground/70 mb-8 line-clamp-3 text-sm leading-relaxed">
                                 {post.excerpt}
                             </p>
+
+                            {post.credit && (
+                                <div className="mb-6 flex items-start gap-2 text-[11px] text-muted italic">
+                                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                    <span className="line-clamp-1">{post.credit}</span>
+                                </div>
+                            )}
 
                             <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-foreground/60 text-sm">

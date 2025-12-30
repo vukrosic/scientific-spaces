@@ -1,5 +1,7 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
@@ -57,44 +59,32 @@ body {
   background-clip: text;
 }
 
+.katex-display {
+  @apply my-8 overflow-x-auto overflow-y-hidden py-4;
+}
+
 .katex {
-  font-size: 1.1em;
+  font-size: 1.15em;
+  @apply text-foreground/90;
 }
 
-.markdown-content h1 {
-  @apply text-4xl font-bold mt-8 mb-4;
+/* Custom markdown overrides when using prose */
+.markdown-content {
+  @apply text-foreground/80;
 }
 
-.markdown-content h2 {
-  @apply text-2xl font-bold mt-8 mb-4 border-b border-white/10 pb-2;
-}
-
+.markdown-content h1,
+.markdown-content h2,
 .markdown-content h3 {
-  @apply text-xl font-bold mt-6 mb-3;
-}
-
-.markdown-content p {
-  @apply my-4 leading-relaxed text-foreground/80;
+  @apply text-foreground font-bold tracking-tight;
 }
 
 .markdown-content a {
-  @apply text-primary hover:text-primary-hover transition-colors;
-}
-
-.markdown-content ul {
-  @apply list-disc list-inside my-4;
-}
-
-.markdown-content li {
-  @apply my-2 text-foreground/80;
-}
-
-.markdown-content blockquote {
-  @apply border-l-4 border-primary/50 pl-4 py-2 my-6 italic bg-white/5 rounded-r;
+  @apply text-primary no-underline hover:underline transition-all;
 }
 
 .markdown-content code {
-  @apply bg-white/10 px-1.5 py-0.5 rounded font-mono text-sm;
+  @apply bg-white/10 px-1 py-0.5 rounded font-mono text-sm before:content-none after:content-none;
 }
 
 @keyframes fadeIn {

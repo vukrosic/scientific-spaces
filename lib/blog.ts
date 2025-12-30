@@ -12,6 +12,7 @@ export interface BlogPost {
     excerpt: string;
     tags: string[];
     content: string;
+    credit?: string;
 }
 
 export function getSortedPostsData(): BlogPost[] {
@@ -39,6 +40,7 @@ export function getSortedPostsData(): BlogPost[] {
                     author: string;
                     excerpt: string;
                     tags: string[];
+                    credit?: string;
                 }),
                 content: matterResult.content,
             };
@@ -84,6 +86,7 @@ export function getPostData(slug: string): BlogPost {
             author: string;
             excerpt: string;
             tags: string[];
+            credit?: string;
         }),
     };
 }
