@@ -82,17 +82,25 @@ $$
 
 With the exception of SGDM, the examples listed here are all considered forms of **adaptive learning rate optimizers**.
 
-Our starting point is the **Exponential Moving Average (EMA)** perspective, which is to write Weight Decay as:
+Our starting point is the **Exponential Moving Average (EMA)** perspective.
+
+**What is an EMA?**
+In statistics, an EMA is used to smooth out noisy data. The standard formula for updating an average $A_t$ with a new observation $x_t$ is:
+$$ A_t = (1 - \alpha) A_{t-1} + \alpha x_t $$
+Here, $\alpha$ is a small number (like 0.01). This says: "Keep 99% of the old average, and mix in 1% of the new observation."
+
+**Applying this to Weight Decay:**
+We can rewrite the standard weight update rule from Equation (1) to look exactly like this EMA formula:
 
 $$
-\boldsymbol{\theta}_t = (1 - \lambda_t \eta_t)\boldsymbol{\theta}_{t-1} - \eta_t \boldsymbol{u}_t = (1 - \lambda_t \eta_t)\boldsymbol{\theta}_{t-1} + \lambda_t \eta_t \left(-\boldsymbol{u}_t / \lambda_t \right) \tag{3}
+\boldsymbol{\theta}_t = \underbrace{(1 - \lambda_t \eta_t)}_{\text{Keep majority of old weights}} \boldsymbol{\theta}_{t-1} + \underbrace{\lambda_t \eta_t}_{\text{Mix in small fraction}} \underbrace{\left(-\frac{\boldsymbol{u}_t}{\lambda_t} \right)}_{\text{"New Observation"}} \tag{3}
 $$
 
-Let's look at the structure of Equation (3). It essentially rewrites the update rule as a weighted average.
-*   The first term, $(1 - \lambda_t \eta_t)\boldsymbol{\theta}_{t-1}$, represents retaining a large fraction of the old weights (since $\lambda_t \eta_t$ is usually a very small number like $0.0001$).
-*   The second term, $\lambda_t \eta_t (-\boldsymbol{u}_t / \lambda_t)$, represents adding a small fraction of the new information (the negative scaled gradient).
-
-Notice that the coefficients $(1 - \lambda_t \eta_t)$ and $\lambda_t \eta_t$ sum to exactly $1$. This is the mathematical definition of a **weighted average** (specifically an Exponential Moving Average or EMA). This perspective shifts our thinking: instead of just "subtracting gradients," we are "averaging the new gradient into the existing memory of the model."
+**Why does this matter?**
+This algebraic trick changes how we interpret training.
+*   **Standard View:** "Take the weights and subtract the gradient."
+*   **EMA View:** "The weights are a **moving average** of the 'target' $-\boldsymbol{u}_t / \lambda_t$."
+*   The term $\lambda_t \eta_t$ acts exactly like the coefficient $\alpha$ in EMA. It controls the "memory length" of the system. If $\lambda_t \eta_t$ is very small, the model remembers the past for a long time (high inertia). If it is large, the model updates quickly but forgets the past sooner.
 
 
 At this point, Weight Decay appears as a weighted average form of model parameters and $-\boldsymbol{u}_t/\lambda_t$. 
