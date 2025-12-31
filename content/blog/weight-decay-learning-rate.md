@@ -7,9 +7,7 @@ tags: ["Mathematics", "Deep Learning", "Optimization", "LLM"]
 credit: "Translated and adapted from original work by Jianlin Su (kexue.fm)"
 ---
 
-> **Note**: This article is translated and adapted from the original Chinese blog post by **Jianlin Su** at [kexue.fm](https://kexue.fm/archives/11459). We have expanded on the original derivations and added further technical context for modern LLM training.
-
-**By Vuk Rosić | 2025-12-05**
+> **Note**: This article is translated and adapted from the original Chinese blog post by **Jianlin Su** at [kexue.fm](https://kexue.fm/archives/11459). We have expanded on the original derivations and added further technical context, making it more accessibe to wider audience.
 
 Weight Decay and Learning Rate are critical components of LLM pre-training; whether they are set appropriately is one of the key factors determining the ultimate success or failure of a model. Since the introduction of **AdamW**, it has basically become a consensus to decouple Weight Decay to replace traditional L2 regularization. However, beyond this, there has been no significant theoretical progress on how to reasonably set Weight Decay and Learning Rate.
 
@@ -23,12 +21,12 @@ $$
 $$
 
 **Breaking this down:**
-*   $\boldsymbol{\theta}_{t-1}$ is the parameter matrix from the previous step.
-*   $\eta_t$ is the Learning Rate at step $t$, which controls how big of a step we take.
-*   $\boldsymbol{u}_t$ is the update direction (gradients) provided by the optimizer (like the gradient in SGD).
-*   $\lambda_t \boldsymbol{\theta}_{t-1}$ is the **Weight Decay** term. It acts as a regularization force that shrinks weights towards zero by a fraction $\lambda_t$ at each step.
-    *   **Why is this needed?** Without this constraint, weights can grow indefinitely large, allowing the model to learn extremely complex, "jagged" boundaries that weave around every single data point.
-    *   **Fitting Noise:** Real data is messy. If a model has the freedom to use massive weights, it can over-interpret random noise in the training set as meaningful signal (overfitting). Weight decay forces the model to be "conservative," preferring simpler, smoother solutions that capture the broad trends rather than the noisy specifics.
+-   $\boldsymbol{\theta}_{t-1}$ is the parameter matrix from the previous step.
+-   $\eta_t$ is the Learning Rate at step $t$, which controls how big of a step we take.
+-   $\boldsymbol{u}_t$ is the update direction (gradients) provided by the optimizer (like the gradient in SGD).
+-   $\lambda_t \boldsymbol{\theta}_{t-1}$ is the **Weight Decay** term. It acts as a regularization force that shrinks weights towards zero by a fraction $\lambda_t$ at each step.
+    -   **Why is this needed?** Without this constraint, weights can grow indefinitely large, allowing the model to learn extremely complex, "jagged" boundaries that weave around every single data point.
+    -   **Fitting Noise:** Real data is messy. If a model has the freedom to use massive weights, it can over-interpret random noise in the training set as meaningful signal (overfitting). Weight decay forces the model to be "conservative," preferring simpler, smoother solutions that capture the broad trends rather than the noisy specifics.
 
 
 Introducing the notation:
@@ -41,38 +39,38 @@ $$
 $$
 
 **1. Deconstructing the Variables:**
-*   **$\boldsymbol{g}_t$**: The gradient at the current step. It points in the direction of steepest ascent.
-*   **$\boldsymbol{m}_t$ (First Moment/Momentum)**: An exponential moving average of past gradients. It helps smooth out noisy gradients and allows the optimizer to build up velocity in consistent directions, acting like a heavy ball rolling down a hill.
-*   **$\boldsymbol{v}_t$ (Second Moment)**: An exponential moving average of *squared* gradients. This estimates the "magnitude" or variance of the gradients. Large values mean the landscape is steep or unstable in that dimension.
-*   **$\hat{\boldsymbol{m}}_t, \hat{\boldsymbol{v}}_t$ (Bias Correction)**: We typically initialize $m_0 = 0$. Since the decay rate $\beta$ is close to 1 (e.g., 0.9 or 0.999), the early estimates of $m_t$ are heavily biased towards zero.
-    *   The term $(1 - \beta^t)$ acts as a correction factor. At step $t=1$, if $\beta=0.9$, then $(1 - 0.9^1) = 0.1$, so we divide by 0.1 (multiply by 10) to scale up the initial small value.
-    *   As $t \to \infty$, $\beta^t \to 0$, so the divisor becomes 1, and the bias correction disappears once the moving average has warmed up.
+-   **$\boldsymbol{g}_t$**: The gradient at the current step. It points in the direction of steepest ascent.
+-   **$\boldsymbol{m}_t$ (First Moment/Momentum)**: An exponential moving average of past gradients. It helps smooth out noisy gradients and allows the optimizer to build up velocity in consistent directions, acting like a heavy ball rolling down a hill.
+-   **$\boldsymbol{v}_t$ (Second Moment)**: An exponential moving average of *squared* gradients. This estimates the "magnitude" or variance of the gradients. Large values mean the landscape is steep or unstable in that dimension.
+-   **$\hat{\boldsymbol{m}}_t, \hat{\boldsymbol{v}}_t$ (Bias Correction)**: We typically initialize $m_0 = 0$. Since the decay rate $\beta$ is close to 1 (e.g., 0.9 or 0.999), the early estimates of $m_t$ are heavily biased towards zero.
+    -   The term $(1 - \beta^t)$ acts as a correction factor. At step $t=1$, if $\beta=0.9$, then $(1 - 0.9^1) = 0.1$, so we divide by 0.1 (multiply by 10) to scale up the initial small value.
+    -   As $t \to \infty$, $\beta^t \to 0$, so the divisor becomes 1, and the bias correction disappears once the moving average has warmed up.
 
 **2. How different optimizers define the update $\boldsymbol{u}_t$:**
 
-*   **SGDM (Stochastic Gradient Descent with Momentum):**
+-   **SGDM (Stochastic Gradient Descent with Momentum):**
     $$ \boldsymbol{u}_t = \boldsymbol{m}_t $$
     Uses simple momentum. It accumulates velocity but doesn't adapt the learning rate per parameter.
 
-*   **RMSProp:**
+-   **RMSProp:**
     $$ \boldsymbol{u}_t = \boldsymbol{g}_t / (\sqrt{\boldsymbol{v}_t} + \epsilon) $$
     Divides the gradient by the root mean square of recent gradients. If gradients are consistently large, it reduces the step size to prevent instability.
 
-*   **Adam (Adaptive Moment Estimation):**
+-   **Adam (Adaptive Moment Estimation):**
     $$ \boldsymbol{u}_t = \hat{\boldsymbol{m}}_t / (\sqrt{\hat{\boldsymbol{v}}_t} + \epsilon) $$
     The gold standard. It combines Momentum (smoothing) and RMSProp (scaling) with bias correction.
-    *   **How it adapts:** The magic lies in the division by $\sqrt{\hat{\boldsymbol{v}}_t}$. Since these operations form a vector, they happen element-wise for every single parameter.
-    *   **Mechanism:** If a specific parameter has frequently large gradients (high variance $\hat{\boldsymbol{v}}_t$), the denominator becomes large, effectively **lowering** its learning rate to prevent overshooting. Conversely, for parameters with rare or small gradients, the denominator is small, **boosting** their effective learning rate so they don't get left behind.
+    -   **How it adapts:** The magic lies in the division by $\sqrt{\hat{\boldsymbol{v}}_t}$. Since these operations form a vector, they happen element-wise for every single parameter.
+    -   **Mechanism:** If a specific parameter has frequently large gradients (high variance $\hat{\boldsymbol{v}}_t$), the denominator becomes large, effectively **lowering** its learning rate to prevent overshooting. Conversely, for parameters with rare or small gradients, the denominator is small, **boosting** their effective learning rate so they don't get left behind.
 
-*   **SignSGDM:**
+-   **SignSGDM:**
     $$ \boldsymbol{u}_t = \text{sign}(\boldsymbol{m}_t) $$
     Ignores magnitude entirely, stepping only based on the direction of momentum. This is theoretically interesting for stability and communication efficiency.
 
-*   **Muon:**
+-   **Muon:**
     $$ \boldsymbol{u}_t = \text{msign}(\boldsymbol{m}_t) $$
     A newer optimizer designed for large-scale training.
-    *   **Matrix Sign:** Unlike standard optimizers that treat parameters as a flat vector of numbers, Muon respects the 2D structure of weight matrices.
-    *   **How it works:** It effectively computes a Singular Value Decomposition (SVD) of the momentum matrix ($U \Sigma V^T$), replaces all singular values in $\Sigma$ with 1s, and reconstructs the matrix. This "orthogonalizes" the update, ensuring that the optimizer takes steps of unit magnitude in every principal direction. This is fundamentally different from element-wise sign, which only looks at individual values in isolation.
+    -   **Matrix Sign:** Unlike standard optimizers that treat parameters as a flat vector of numbers, Muon respects the 2D structure of weight matrices.
+    -   **How it works:** It effectively computes a Singular Value Decomposition (SVD) of the momentum matrix ($U \Sigma V^T$), replaces all singular values in $\Sigma$ with 1s, and reconstructs the matrix. This "orthogonalizes" the update, ensuring that the optimizer takes steps of unit magnitude in every principal direction. This is fundamentally different from element-wise sign, which only looks at individual values in isolation.
 
 With the exception of SGDM, the examples listed here are all considered forms of **adaptive learning rate optimizers**.
 
@@ -92,21 +90,17 @@ $$
 
 **Why does this matter?**
 This algebraic trick changes how we interpret training.
-*   **Standard View:** "Take the weights and subtract the gradient."
-*   **EMA View:** "The weights are a **moving average** of the 'target' $-\boldsymbol{u}_t / \lambda_t$."
-*   The term $\lambda_t \eta_t$ acts exactly like the coefficient $\alpha$ in EMA. It controls the "memory length" of the system. If $\lambda_t \eta_t$ is very small, the model remembers the past for a long time (high inertia). If it is large, the model updates quickly but forgets the past sooner.
+-   **Standard View:** "Take the weights and subtract the gradient."
+-   **EMA View:** "The weights are a **moving average** of the 'target' $-\boldsymbol{u}_t / \lambda_t$."
+    -   **What is this target?** Imagine a tug-of-war. The optimizer wants to push weights in direction $\boldsymbol{u}_t$, while weight decay pulls them back to $0$. The point $-\boldsymbol{u}_t / \lambda_t$ is the **equilibrium point** where these two forces would perfectly balance out.
+    -   So, instead of taking a single step, the model is constantly *smoothing* its trajectory towards this shifting equilibrium point.
+-   The term $\lambda_t \eta_t$ acts exactly like the coefficient $\alpha$ in EMA. It controls the "memory length" of the system. If $\lambda_t \eta_t$ is very small, the model remembers the past for a long time (high inertia). If it is large, the model updates quickly but forgets the past sooner.
 
 
 At this point, Weight Decay appears as a weighted average form of model parameters and $-\boldsymbol{u}_t/\lambda_t$. 
 
----
-> Vuk's Note:
+> At first the expression (3) may seem like a weighted sum, not a weighted average. But the defining property that turns a "weighted sum" into a "weighted average" is precisely that the coefficients add up to 1.
 
-At first it may seem like a weighted sum, not a weighted average.
-
-In mathematics, the defining property that turns a "weighted sum" into a "weighted average" is precisely that the coefficients add up to 1.
-
----
 
 The sliding average perspective is not new; articles such as *«How to set AdamW's weight decay as you scale model and dataset size»* and *«Power Lines: Scaling Laws for Weight Decay and Batch Size in LLM Pre-training»* have already discussed it. This article, however, calculates various aspects more carefully under this perspective.
 
@@ -114,28 +108,66 @@ In the following sections, we mainly take Adam as an example, and finally discus
 
 ### Iterative Expansion #
 
-For simplicity, let us first consider constant $\lambda, \eta$. Let $\beta_3 = 1 - \lambda \eta$ ; (think of $\beta_3$ as a "retention rate" - how much of the old weight we keep).
+For simplicity, let us first consider constant $\lambda, \eta$. Let $\beta_3 = 1 - \lambda \eta$. Think of $\beta_3$ as a "retention rate" - it tells us how much of the old weight matrix is kept at each step (e.g., 0.9999).
 
-Then $\boldsymbol{\theta}_t = \beta_3 \boldsymbol{\theta}_{t-1} + (1 - \beta_3)(-\boldsymbol{u}_t / \lambda)$, which is formally consistent with $\boldsymbol{m}_t, \boldsymbol{v}_t$. Expanding the iteration directly gives:
+Then the update rule becomes:
+$$ \boldsymbol{\theta}_t = \beta_3 \boldsymbol{\theta}_{t-1} + (1 - \beta_3)(-\boldsymbol{u}_t / \lambda) $$
+This form looks familiar—it's exactly the same structure as the momentum term $m_t$ or variance term $v_t$ in Equation (2).
+
+**1. Unrolling the Recursion (Equation 4):**
+Let's unroll the update rule $\boldsymbol{\theta}_t = \beta_3 \boldsymbol{\theta}_{t-1} + (1 - \beta_3)(-\boldsymbol{u}_t / \lambda)$ step by step.
+
+**Step $t=1$:**
+
+$$ \boldsymbol{\theta}_1 = \beta_3 \boldsymbol{\theta}_0 + (1-\beta_3)(-\boldsymbol{u}_1/\lambda) $$
+
+**Step $t=2$:**
+Substitute $\boldsymbol{\theta}_1$ into the rule for $\boldsymbol{\theta}_2$:
+
+$$ \boldsymbol{\theta}_2 = \beta_3 \underbrace{[\beta_3 \boldsymbol{\theta}_0 + (1-\beta_3)(-\boldsymbol{u}_1/\lambda)]}_{\boldsymbol{\theta}_1} + (1-\beta_3)(-\boldsymbol{u}_2/\lambda) $$
+
+$$ \boldsymbol{\theta}_2 = \beta_3^2 \boldsymbol{\theta}_0 + \beta_3(1-\beta_3)(-\boldsymbol{u}_1/\lambda) + (1-\beta_3)(-\boldsymbol{u}_2/\lambda) $$
+
+**Step $t=3$:**
+Multiply the previous result by $\beta_3$ again and add the new term. This creates a pattern where older updates get multiplied by more $\beta_3$'s.
+
+Generalizing this to time $t$, we get the sum of all past updates, weighted by powers of $\beta_3$:
+If we expand this formula recursively back to the start ($t=0$), we get a sum of all past updates, weighted by how "old" they are:
 
 $$
-\boldsymbol{\theta}_t = \beta_3^t \boldsymbol{\theta}_0 + (1 - \beta_3) \sum_{i=1}^t \beta_3^{t-i} (-\boldsymbol{u}_i / \lambda) \tag{4}
+\boldsymbol{\theta}_t = \underbrace{\beta_3^t \boldsymbol{\theta}_0}_{\text{Decayed Initial Weight}} + \underbrace{(1 - \beta_3) \sum_{i=1}^t \beta_3^{t-i} (-\boldsymbol{u}_i / \lambda)}_{\text{Weighted Sum of All Past Updates}} \tag{4}
 $$
 
-For Adam, $\boldsymbol{u}_t = \hat{\boldsymbol{m}}_t / (\sqrt{\hat{\boldsymbol{v}}_t} + \epsilon)$. generally, at the end of training, $t$ is large enough that $\beta_1^t, \beta_2^t$ are sufficiently close to zero, so we do not need to distinguish between $\boldsymbol{m}_t$ and $\hat{\boldsymbol{m}}_t$, or $\boldsymbol{v}_t$ and $\hat{\boldsymbol{v}}_t$. Furthermore, simply setting $\epsilon=0$, we can simplify to $\boldsymbol{u}_t = \boldsymbol{m}_t / \sqrt{\boldsymbol{v}_t}$. Then we apply a classic **Mean Field Approximation**:
+-   The first term shows that the initial weights $\boldsymbol{\theta}_0$ decay exponentially and eventually vanish.
+-   The second term accumulates every past update $\boldsymbol{u}_i$, but recent updates (where $t-i$ is small) have higher weights ($\approx 1$), while old updates (where $t-i$ is large) have tiny weights ($\approx 0$).
+
+**2. The Mean Field Approximation (Equation 5):**
+For Adam, $\boldsymbol{u}_t = \hat{\boldsymbol{m}}_t / (\sqrt{\hat{\boldsymbol{v}}_t} + \epsilon)$. As training progresses ($t \to \infty$), the bias correction terms $\beta^t$ vanish, so we can ignore the "hats".
+The expression for $\boldsymbol{u}_i$ is nonlinear (it involves division). To simplify the math, we apply a **Mean Field Approximation**.
+-   **The Idea:** Instead of averaging the *ratio* $\frac{m}{v}$, we approximate it as the *ratio of the averages* $\frac{\bar{m}}{\bar{v}}$.
+-   This lets us treat the numerator and denominator separately.
 
 $$
 \frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \boldsymbol{u}_i \underbrace{\approx}_{\text{denoted as } \bar{\boldsymbol{u}}_t} \frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \frac{\boldsymbol{m}_i}{\sqrt{\boldsymbol{v}_i}} \approx \frac{\bar{\boldsymbol{m}}_t}{\sqrt{\bar{\boldsymbol{v}}_t}} \tag{5}
 $$
 
-Where:
+Where $\bar{\boldsymbol{m}}_t$ and $\bar{\boldsymbol{v}}_t$ are simply the sliding averages of the momentum and variance terms:
 $$
 \bar{\boldsymbol{m}}_t \triangleq \frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \boldsymbol{m}_i, \quad \bar{\boldsymbol{v}}_t \triangleq \frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \boldsymbol{v}_i
 $$
 
-Expanding $\boldsymbol{m}_t, \boldsymbol{v}_t$ gives $\boldsymbol{m}_t = (1-\beta_1)\sum_{i=1}^t \beta_1^{t-i} \boldsymbol{g}_i$ and $\boldsymbol{v}_t = (1-\beta_2)\sum_{i=1}^t \beta_2^{t-i} \boldsymbol{g}_i^2$. Substituting these into the equation above:
+Now we need to calculate $\bar{\boldsymbol{m}}_t$ and $\bar{\boldsymbol{v}}_t$.
+To do this, we first need to express $\boldsymbol{m}_t$ and $\boldsymbol{v}_t$ as sums of past gradients, similar to how we expanded $\boldsymbol{\theta}_t$ in Eq (4):
+$$ \boldsymbol{m}_t = (1-\beta_1)\sum_{j=1}^t \beta_1^{t-j} \boldsymbol{g}_j $$
+$$ \boldsymbol{v}_t = (1-\beta_2)\sum_{j=1}^t \beta_2^{t-j} \boldsymbol{g}_j^2 $$
 
+Now, substitute this expanded form of $\boldsymbol{m}_t$ back into the definition of $\bar{\boldsymbol{m}}_t$:
 $$
+\bar{\boldsymbol{m}}_t = \frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \underbrace{\left( (1-\beta_1)\sum_{j=1}^i \beta_1^{i-j} \boldsymbol{g}_j \right)}_{\boldsymbol{m}_i}
+$$
+This gives us a double summation. By rearranging the terms, we arrive at Equation (6):
+
+
 \bar{\boldsymbol{m}}_t = \frac{(1-\beta_3)(1-\beta_1)}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \sum_{j=1}^i \beta_1^{i-j} \boldsymbol{g}_j = \frac{(1-\beta_3)(1-\beta_1)}{(1-\beta_3^t)(\beta_3 - \beta_1)} \sum_{j=1}^t (\beta_3^{t-j+1} - \beta_1^{t-j+1}) \boldsymbol{g}_j \tag{6}
 $$
 
