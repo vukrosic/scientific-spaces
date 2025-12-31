@@ -9,13 +9,7 @@ credit: "Translated and adapted from original work by Jianlin Su (kexue.fm)"
 
 > **Note**: This article is translated and adapted from the original Chinese blog post by **Jianlin Su** at [kexue.fm](https://kexue.fm/archives/11459). We have expanded on the original derivations and added further technical context for modern LLM training.
 
-Here is the full translation of the blog post into English, formatted in Markdown with LaTeX equations.
-
-***
-
-# Weight Decay and Learning Rate from the Perspective of Sliding Average
-
-**By Su Jianlin | 2025-12-05**
+**By Vuk Rosić | 2025-12-05**
 
 Weight Decay and Learning Rate are critical components of LLM pre-training; whether they are set appropriately is one of the key factors determining the ultimate success or failure of a model. Since the introduction of **AdamW**, it has basically become a consensus to decouple Weight Decay to replace traditional L2 regularization. However, beyond this, there has been no significant theoretical progress on how to reasonably set Weight Decay and Learning Rate.
 
