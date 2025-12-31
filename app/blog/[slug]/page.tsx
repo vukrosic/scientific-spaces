@@ -48,10 +48,6 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
                         ))}
                     </div>
                     <div className="w-1 h-1 bg-muted/40 rounded-full" />
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
-                        <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
-                        100% Human Written
-                    </div>
                 </div>
 
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-8 leading-tight">
