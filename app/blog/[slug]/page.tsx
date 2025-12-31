@@ -19,7 +19,7 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
     const post = getPostData(slug);
 
     return (
-        <article className="min-h-screen py-20 px-6 sm:px-10 lg:px-20 max-w-4xl mx-auto">
+        <article className="min-h-screen py-20 px-6 sm:px-10 lg:px-20 max-w-5xl mx-auto">
             <Link
                 href="/blog"
                 className="inline-flex items-center gap-2 text-muted hover:text-primary transition-colors mb-12 group"
@@ -46,6 +46,11 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
                                 #{tag}
                             </span>
                         ))}
+                    </div>
+                    <div className="w-1 h-1 bg-muted/40 rounded-full" />
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
+                        <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+                        100% Human Written
                     </div>
                 </div>
 
@@ -78,7 +83,7 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
                 )}
             </header>
 
-            <div className="markdown-content prose prose-invert prose-lg max-w-none">
+            <div className="markdown-content prose prose-invert prose-xl max-w-none">
                 <ReactMarkdown
                     remarkPlugins={[remarkMath]}
                     rehypePlugins={[rehypeKatex]}
