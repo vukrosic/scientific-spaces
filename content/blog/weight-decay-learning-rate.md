@@ -181,7 +181,7 @@ $$
 \bar{\boldsymbol{m}}_t = \frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \underbrace{\left( (1-\beta_1)\sum_{j=1}^i \beta_1^{i-j} \boldsymbol{g}_j \right)}_{\boldsymbol{m}_i}
 $$
 This gives us a double summation. By rearranging the terms, we arrive at Equation (6):
-$$
+
 
 $$
 \bar{\boldsymbol{m}}_t = \frac{(1-\beta_3)(1-\beta_1)}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \sum_{j=1}^i \beta_1^{i-j} \boldsymbol{g}_j = \frac{(1-\beta_3)(1-\beta_1)}{(1-\beta_3^t)(\beta_3 - \beta_1)} \sum_{j=1}^t (\beta_3^{t-j+1} - \beta_1^{t-j+1}) \boldsymbol{g}_j \tag{6}
