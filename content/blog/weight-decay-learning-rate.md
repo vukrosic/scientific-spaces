@@ -143,12 +143,27 @@ $$
 
 **2. The Mean Field Approximation (Equation 5):**
 For Adam, $\boldsymbol{u}_t = \hat{\boldsymbol{m}}_t / (\sqrt{\hat{\boldsymbol{v}}_t} + \epsilon)$. As training progresses ($t \to \infty$), the bias correction terms $\beta^t$ vanish, so we can ignore the "hats".
-The expression for $\boldsymbol{u}_i$ is nonlinear (it involves division). To simplify the math, we apply a **Mean Field Approximation**.
--   **The Idea:** Instead of averaging the *ratio* $\frac{m}{v}$, we approximate it as the *ratio of the averages* $\frac{\bar{m}}{\bar{v}}$.
--   This lets us treat the numerator and denominator separately.
+The expression for $\boldsymbol{u}_i$ is nonlinear (it involves division). We need to simplify the summation term in Equation (4): $\sum \beta_3^{t-i} (\boldsymbol{m}_i / \sqrt{\boldsymbol{v}_i})$.
+
+Sums of ratios are notoriously difficult to analyze because $\sum (a/b) \neq (\sum a) / (\sum b)$. To proceed, we apply a **Mean Field Approximation**, treating the numerator (momentum) and denominator (variance) as separate fields.
+
+*   **Step 1: Define Normalized Weights**
+    Let's define a probability distribution of weights $\alpha_{t,i}$ so they sum to 1:
+    $$ \alpha_{t,i} = \frac{\beta_3^{t-i}}{\sum_{j=1}^t \beta_3^{t-j}} = \frac{\beta_3^{t-i}(1-\beta_3)}{1-\beta_3^t} $$
+    
+*   **Step 2: Rewrite the Sum as an Expectation**
+    The term we want to approximate is the weighted average of the ratio:
+    $$ \text{Target} = \sum_{i=1}^t \alpha_{t,i} \left( \frac{\boldsymbol{m}_i}{\sqrt{\boldsymbol{v}_i}} \right) = \mathbb{E}_{\alpha} \left[ \frac{m}{\sqrt{v}} \right] $$
+
+*   **Step 3: Apply The Approximation**
+    We approximate the "Average of Ratios" as the "Ratio of Averages":
+    $$ \mathbb{E}_{\alpha} \left[ \frac{m}{\sqrt{v}} \right] \approx \frac{\mathbb{E}_{\alpha}[m]}{\sqrt{\mathbb{E}_{\alpha}[v]}} $$
+    
+*   **Step 4: Substitute Back**
+    Plugging this back into our variables gives us Equation (5):
 
 $$
-\frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \boldsymbol{u}_i \underbrace{\approx}_{\text{denoted as } \bar{\boldsymbol{u}}_t} \frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \frac{\boldsymbol{m}_i}{\sqrt{\boldsymbol{v}_i}} \approx \frac{\bar{\boldsymbol{m}}_t}{\sqrt{\bar{\boldsymbol{v}}_t}} \tag{5}
+\frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \boldsymbol{u}_i \underbrace{\approx}_{\text{Mean Field}} \frac{\sum \alpha_{t,i} \boldsymbol{m}_i}{\sqrt{\sum \alpha_{t,i} \boldsymbol{v}_i}} = \frac{\bar{\boldsymbol{m}}_t}{\sqrt{\bar{\boldsymbol{v}}_t}} \tag{5}
 $$
 
 Where $\bar{\boldsymbol{m}}_t$ and $\bar{\boldsymbol{v}}_t$ are simply the sliding averages of the momentum and variance terms:
@@ -166,8 +181,9 @@ $$
 \bar{\boldsymbol{m}}_t = \frac{1-\beta_3}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \underbrace{\left( (1-\beta_1)\sum_{j=1}^i \beta_1^{i-j} \boldsymbol{g}_j \right)}_{\boldsymbol{m}_i}
 $$
 This gives us a double summation. By rearranging the terms, we arrive at Equation (6):
+$$
 
-
+$$
 \bar{\boldsymbol{m}}_t = \frac{(1-\beta_3)(1-\beta_1)}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \sum_{j=1}^i \beta_1^{i-j} \boldsymbol{g}_j = \frac{(1-\beta_3)(1-\beta_1)}{(1-\beta_3^t)(\beta_3 - \beta_1)} \sum_{j=1}^t (\beta_3^{t-j+1} - \beta_1^{t-j+1}) \boldsymbol{g}_j \tag{6}
 $$
 
