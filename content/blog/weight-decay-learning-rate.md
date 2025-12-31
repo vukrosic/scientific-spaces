@@ -24,12 +24,20 @@ This article aims to initiate a discussion by sharing some of the author's new u
 ### Sliding Average #
 
 The general form of Weight Decay is:
-
 $$
 \boldsymbol{\theta}_t = \boldsymbol{\theta}_{t-1} - \eta_t (\boldsymbol{u}_t + \lambda_t \boldsymbol{\theta}_{t-1}) \tag{1}
 $$
 
-Where $\boldsymbol{\theta}$ represents the parameters, $\boldsymbol{u}$ is the update quantity provided by the optimizer, $\lambda_t, \eta_t$ are what we refer to as Weight Decay and Learning Rate, and the entire sequences $\{\lambda_t\}$ and $\{\eta_t\}$ are referred to as the "WD Schedule" and "LR Schedule," respectively. Introducing the notation:
+**Breaking this down:**
+*   $\boldsymbol{\theta}_{t-1}$ is the parameter matrix from the previous step.
+*   $\eta_t$ is the Learning Rate at step $t$, which controls how big of a step we take.
+*   $\boldsymbol{u}_t$ is the update direction (gradients) provided by the optimizer (like the gradient in SGD).
+*   $\lambda_t \boldsymbol{\theta}_{t-1}$ is the **Weight Decay** term. It acts as a regularization force that shrinks weights towards zero by a fraction $\lambda_t$ at each step.
+    *   **Why is this needed?** Without this constraint, weights can grow indefinitely large, allowing the model to learn extremely complex, "jagged" boundaries that weave around every single data point.
+    *   **Fitting Noise:** Real data is messy. If a model has the freedom to use massive weights, it can over-interpret random noise in the training set as meaningful signal (overfitting). Weight decay forces the model to be "conservative," preferring simpler, smoother solutions that capture the broad trends rather than the noisy specifics.
+
+
+Introducing the notation:
 
 $$
 \begin{aligned}
@@ -38,13 +46,54 @@ $$
 \end{aligned} \tag{2}
 $$
 
-Then for **SGDM**, we have $\boldsymbol{u}_t = \boldsymbol{m}_t$; for **RMSProp**, $\boldsymbol{u}_t = \boldsymbol{g}_t / (\sqrt{\boldsymbol{v}_t} + \epsilon)$; for **Adam**, it is $\boldsymbol{u}_t = \hat{\boldsymbol{m}}_t / (\sqrt{\hat{\boldsymbol{v}}_t} + \epsilon)$; for **SignSGDM**, it is $\boldsymbol{u}_t = \text{sign}(\boldsymbol{m}_t)$; and for **Muon**, it is $\boldsymbol{u}_t = \text{msign}(\boldsymbol{m}_t)$. With the exception of SGDM, the examples listed here are all considered forms of adaptive learning rate optimizers.
+**1. Deconstructing the Variables:**
+*   **$\boldsymbol{g}_t$**: The gradient at the current step. It points in the direction of steepest ascent.
+*   **$\boldsymbol{m}_t$ (First Moment/Momentum)**: An exponential moving average of past gradients. It helps smooth out noisy gradients and allows the optimizer to build up velocity in consistent directions, acting like a heavy ball rolling down a hill.
+*   **$\boldsymbol{v}_t$ (Second Moment)**: An exponential moving average of *squared* gradients. This estimates the "magnitude" or variance of the gradients. Large values mean the landscape is steep or unstable in that dimension.
+*   **$\hat{\boldsymbol{m}}_t, \hat{\boldsymbol{v}}_t$ (Bias Correction)**: We typically initialize $m_0 = 0$. Since the decay rate $\beta$ is close to 1 (e.g., 0.9 or 0.999), the early estimates of $m_t$ are heavily biased towards zero.
+    *   The term $(1 - \beta^t)$ acts as a correction factor. At step $t=1$, if $\beta=0.9$, then $(1 - 0.9^1) = 0.1$, so we divide by 0.1 (multiply by 10) to scale up the initial small value.
+    *   As $t \to \infty$, $\beta^t \to 0$, so the divisor becomes 1, and the bias correction disappears once the moving average has warmed up.
+
+**2. How different optimizers define the update $\boldsymbol{u}_t$:**
+
+*   **SGDM (Stochastic Gradient Descent with Momentum):**
+    $$ \boldsymbol{u}_t = \boldsymbol{m}_t $$
+    Uses simple momentum. It accumulates velocity but doesn't adapt the learning rate per parameter.
+
+*   **RMSProp:**
+    $$ \boldsymbol{u}_t = \boldsymbol{g}_t / (\sqrt{\boldsymbol{v}_t} + \epsilon) $$
+    Divides the gradient by the root mean square of recent gradients. If gradients are consistently large, it reduces the step size to prevent instability.
+
+*   **Adam (Adaptive Moment Estimation):**
+    $$ \boldsymbol{u}_t = \hat{\boldsymbol{m}}_t / (\sqrt{\hat{\boldsymbol{v}}_t} + \epsilon) $$
+    The gold standard. It combines Momentum (smoothing) and RMSProp (scaling) with bias correction.
+    *   **How it adapts:** The magic lies in the division by $\sqrt{\hat{\boldsymbol{v}}_t}$. Since these operations form a vector, they happen element-wise for every single parameter.
+    *   **Mechanism:** If a specific parameter has frequently large gradients (high variance $\hat{\boldsymbol{v}}_t$), the denominator becomes large, effectively **lowering** its learning rate to prevent overshooting. Conversely, for parameters with rare or small gradients, the denominator is small, **boosting** their effective learning rate so they don't get left behind.
+
+*   **SignSGDM:**
+    $$ \boldsymbol{u}_t = \text{sign}(\boldsymbol{m}_t) $$
+    Ignores magnitude entirely, stepping only based on the direction of momentum. This is theoretically interesting for stability and communication efficiency.
+
+*   **Muon:**
+    $$ \boldsymbol{u}_t = \text{msign}(\boldsymbol{m}_t) $$
+    A newer optimizer designed for large-scale training.
+    *   **Matrix Sign:** Unlike standard optimizers that treat parameters as a flat vector of numbers, Muon respects the 2D structure of weight matrices.
+    *   **How it works:** It effectively computes a Singular Value Decomposition (SVD) of the momentum matrix ($U \Sigma V^T$), replaces all singular values in $\Sigma$ with 1s, and reconstructs the matrix. This "orthogonalizes" the update, ensuring that the optimizer takes steps of unit magnitude in every principal direction. This is fundamentally different from element-wise sign, which only looks at individual values in isolation.
+
+With the exception of SGDM, the examples listed here are all considered forms of **adaptive learning rate optimizers**.
 
 Our starting point is the **Exponential Moving Average (EMA)** perspective, which is to write Weight Decay as:
 
 $$
 \boldsymbol{\theta}_t = (1 - \lambda_t \eta_t)\boldsymbol{\theta}_{t-1} - \eta_t \boldsymbol{u}_t = (1 - \lambda_t \eta_t)\boldsymbol{\theta}_{t-1} + \lambda_t \eta_t \left(-\boldsymbol{u}_t / \lambda_t \right) \tag{3}
 $$
+
+Let's look at the structure of Equation (3). It essentially rewrites the update rule as a weighted average.
+*   The first term, $(1 - \lambda_t \eta_t)\boldsymbol{\theta}_{t-1}$, represents retaining a large fraction of the old weights (since $\lambda_t \eta_t$ is usually a very small number like $0.0001$).
+*   The second term, $\lambda_t \eta_t (-\boldsymbol{u}_t / \lambda_t)$, represents adding a small fraction of the new information (the negative scaled gradient).
+
+Notice that the coefficients $(1 - \lambda_t \eta_t)$ and $\lambda_t \eta_t$ sum to exactly $1$. This is the mathematical definition of a **weighted average** (specifically an Exponential Moving Average or EMA). This perspective shifts our thinking: instead of just "subtracting gradients," we are "averaging the new gradient into the existing memory of the model."
+
 
 At this point, Weight Decay appears as a weighted average form of model parameters and $-\boldsymbol{u}_t/\lambda_t$. 
 
@@ -88,7 +137,12 @@ $$
 \bar{\boldsymbol{m}}_t = \frac{(1-\beta_3)(1-\beta_1)}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \sum_{j=1}^i \beta_1^{i-j} \boldsymbol{g}_j = \frac{(1-\beta_3)(1-\beta_1)}{(1-\beta_3^t)(\beta_3 - \beta_1)} \sum_{j=1}^t (\beta_3^{t-j+1} - \beta_1^{t-j+1}) \boldsymbol{g}_j \tag{6}
 $$
 
-$$
+**Understanding the Summation Logic:**
+1.  **The Inner Sum**: The term $\sum_{j=1}^i \beta_1^{i-j}$ represents the accumulation of momentum up to step $i$. This is a **geometric series**, where past gradients decay by a factor of $\beta_1$ at each step.
+2.  **Swapping the Order**: The derivation swaps the double summation from $\sum_{i=1}^t \sum_{j=1}^i$ to $\sum_{j=1}^t \sum_{i=j}^t$. Intuitively, instead of asking "what gradients are included at step $i$?", we ask "how many times does a specific gradient $\boldsymbol{g}_j$ appear in all future steps?".
+3.  **The Result**: The final coefficient $\frac{\beta_3^{t-j+1} - \beta_1^{t-j+1}}{\beta_3 - \beta_1}$ tells us the exact weight of the gradient from step $j$ in the final model. It shows that older gradients (small $j$, large $t-j$) have exponentially less influence.
+
+ $$
 \bar{\boldsymbol{v}}_t = \frac{(1-\beta_3)(1-\beta_2)}{1-\beta_3^t} \sum_{i=1}^t \beta_3^{t-i} \sum_{j=1}^i \beta_2^{i-j} \boldsymbol{g}_j^2 = \frac{(1-\beta_3)(1-\beta_2)}{(1-\beta_3^t)(\beta_3 - \beta_2)} \sum_{j=1}^t (\beta_3^{t-j+1} - \beta_2^{t-j+1}) \boldsymbol{g}_j^2 \tag{7}
 $$
 
@@ -106,7 +160,16 @@ We are mainly concerned with pre-training, which is characterized by being **Sin
 
 Data is linearly superimposed into $\bar{\boldsymbol{m}}_t$ in the form of gradients. Assuming that the gradient at each step contains only the information of the current Batch, then for a certain Batch not to be forgotten, the coefficient $\beta_3^{t-j+1} - \beta_1^{t-j+1}$ must not be too small. Consider the function $f(s) = \beta_3^s - \beta_1^s$. It is a function that increases first and then decreases, but because $\beta_3$ is closer to 1 than $\beta_1$, the number of increasing steps is small, and in the long range, it is mostly an exponential decay.
 
-Overall, the trend is that the coefficient gets smaller as the distance increases. To ensure the model does not forget every Batch, the coefficient at the farthest point must not be too small. Assuming the coefficient must be no less than $c \in (0, 1)$ to be remembered, when $s$ is large enough, $\beta_1^s$ tends to 0 first, so $\beta_3^s - \beta_1^s \approx \beta_3^s$. From $\beta_3^s \ge c$, we can solve for $s \le \frac{\log c}{\log \beta_3} \approx -\frac{\log c}{\lambda \eta}$. This indicates that the model can at most remember $O(1/\lambda \eta)$ steps of data; this is its **Memory Period**.
+Overall, the trend is that the coefficient gets smaller as the distance increases. To ensure the model does not forget every Batch, the coefficient at the farthest point must not be too small. Assuming the coefficient must be no less than $c \in (0, 1)$ to be remembered, when $s$ is large enough, $\beta_1^s$ tends to 0 first, so $\beta_3^s - \beta_1^s \approx \beta_3^s$.
+
+From $\beta_3^s \ge c$, we can solve for $s$:
+1.  Take the natural logarithm ($\ln$) of both sides: $s \cdot \ln(\beta_3) = \ln(c)$.
+2.  Use the **Taylor Expansion approximation** $\ln(1-x) \approx -x$ for small $x$. Since $\beta_3 = 1 - \lambda \eta$, we have $\ln(\beta_3) \approx -\lambda \eta$.
+3.  Substitute this back: $s \cdot (-\lambda \eta) \approx \ln(c)$.
+4.  Solve for $s$: $s \approx \frac{\ln c}{-\lambda \eta} = \frac{-\ln c}{\lambda \eta}$.
+
+Since $-\ln c$ is just a positive constant, we conclude that $s$ is proportional to $1/\lambda \eta$. This result, $s \le O(1/\lambda \eta)$, is the model's **Memory Period**. It tells us that higher weight decay or learning rate leads to a shorter memory span.
+
 
 So, can we simply set $\lambda=0$ blindly to make the memory period infinite, so we don't have to worry about forgetting? Theoretically yes, but this is not a good choice. Another function of Weight Decay is to help the model forget the initialization. From equation (8), the weight of the initialization $\boldsymbol{\theta}_0$ is $\beta_3^t$. If $\beta_3$ is too large or the training steps $t$ are too small, the proportion of initialization is still high, and the model may still be in an underfitting stage.
 
@@ -123,6 +186,12 @@ Starting from equation (3), using the approximation $1 - \lambda_t \eta_t \appro
 $$
 \boldsymbol{\theta}_t = (1 - \lambda_t \eta_t)\boldsymbol{\theta}_{t-1} - \eta_t \boldsymbol{u}_t \approx e^{-\lambda_t \eta_t} \boldsymbol{\theta}_{t-1} - \eta_t \boldsymbol{u}_t = e^{-\kappa_t} \left( \boldsymbol{\theta}_0 - \sum_{i=1}^t e^{\kappa_i} \eta_i \boldsymbol{u}_i \right) \tag{9}
 $$
+
+Here, we used an approximation to convert the product of decay terms into an exponential sum.
+Instead of multiplying $(1 - \lambda_i \eta_i)$ at every step, we sum the exponents:
+$$ \prod_{i=1}^t (1 - \lambda_i \eta_i) \approx \exp\left( \sum_{i=1}^t (-\lambda_i \eta_i) \right) = e^{-\kappa_t} $$
+This allows us to treat the discrete schedule as a continuous integral-like term $\kappa_t$, greatly simplifying the math for dynamic schedules.
+
 
 Where $\kappa_t = \sum_{i=1}^t \eta_i \lambda_i$. Continuing to set $z_t = \sum_{i=1}^t e^{\kappa_i} \eta_i$, we can obtain the same mean field approximation:
 
@@ -152,12 +221,17 @@ There are many things we can do next. The most basic one is to calculate $\bar{\
 
 Specifically, we assumed earlier that the data has been globally shuffled, so the data in each Batch is equally important. However, the coefficient obtained in the static version $\bar{\beta}_1(j,t) \propto \beta_3^{t-j+1} - \beta_1^{t-j+1}$ is not constant, but changes with distance, which does not fully match "each Batch is equally important." If conditions permit, we expect it to be equal to a constant. Based on this expectation, we can solve for the corresponding $\lambda_j, \eta_j$.
 
-For simplicity, we start with $\beta_1, \beta_2 \to 0$. In this case, the expectation condition can be written as $\forall 0 \le i, j \le t, e^{\kappa_i} \eta_i / z_t = e^{\kappa_j} \eta_j / z_t$. Rearranging gives $\eta_i / \eta_j = e^{\kappa_j - \kappa_i}$. Substituting $i = j-1$, we get $\eta_{j-1} / \eta_j = e^{\kappa_j - \kappa_{j-1}} = e^{\lambda_j \eta_j}$, or written as:
+For simplicity, we start with $\beta_1, \beta_2 \to 0$. In this case, the expectation condition can be written as $\forall 0 \le i, j \le t, e^{\kappa_i} \eta_i / z_t = e^{\kappa_j} \eta_j / z_t$.
+We want every batch to have the **exact same weight**.
+Looking at Equation (10), the weight for step $i$ is $e^{\kappa_i} \eta_i$. To make this constant, we equate the terms for step $j$ and $j-1$:
+$$ e^{\kappa_{j-1}} \eta_{j-1} = e^{\kappa_j} \eta_j $$
+Rearranging gives $\frac{\eta_{j-1}}{\eta_j} = e^{\kappa_j - \kappa_{j-1}}$.
+Since $\kappa_t$ is the sum of $\lambda \eta$, the difference $\kappa_j - \kappa_{j-1}$ is simply $\lambda_j \eta_j$.
+Substituting this back, we get:
+$$
+\frac{e^{\lambda_j \eta_j}}{\eta_j} = \frac{1}{\eta_{j-1}} \implies \eta_{j-1} = \eta_j e^{\lambda_j \eta_j} \tag{14}
+$$
 
-$$
-\frac{e^{\lambda_j \eta_j}}{\eta_j} = \frac{1}{\eta_{j-1}} \tag{14}
-$$
-*(Note: There is a slight typo in the original text's equation 14 arrangement, but the derivation implies $\eta_{j-1} = \eta_j e^{\lambda_j \eta_j}$)*
 
 This provides a numerical method for solving $\lambda_j, \eta_j$: after obtaining $\eta_{j-1}$ at each step, $\lambda_j, \eta_j$ can be obtained by solving this nonlinear equation, so the entire sequence can be obtained recursively starting from $\eta_1$. If a more analytical result is desired, derivatives can be used to approximate the difference: taking the logarithm of both sides gives $\lambda_j \eta_j + \log \eta_j - \log \eta_{j-1} = 0$. Treating $\lambda_j, \eta_j$ as continuous functions $\lambda_s, \eta_s$, and $\log \eta_j - \log \eta_{j-1}$ as the derivative approximation of $\log \eta_s$, we have:
 
@@ -165,19 +239,28 @@ $$
 \lambda_s \eta_s + \frac{\dot{\eta}_s}{\eta_s} \approx 0 \tag{15}
 $$
 
-If $\lambda_s$ is taken as a constant $\lambda$, then we can solve:
+If $\lambda_s$ is taken as a constant $\lambda$, then we can solve the differential equation:
+1.  Start with $\lambda \eta + \frac{\dot{\eta}}{\eta} = 0$.
+2.  Multiply by $\eta$ to separate variables: $\dot{\eta} = -\lambda \eta^2$.
+3.  Integrate both sides: $\int \eta^{-2} d\eta = \int -\lambda dt \implies -\frac{1}{\eta} = -\lambda t + C$.
+4.  Solve for $\eta$: $\eta(t) = \frac{1}{\lambda t - C}$. Adding boundary conditions gives the final form:
 
 $$
 \eta_s \approx \frac{\eta_{\max}}{\lambda \eta_{\max} s + 1} \tag{16}
 $$
 
+
 This is the **Best LR Schedule under constant Weight Decay**. It does not require a preset endpoint $t$ and minimum learning rate $\eta_{\min}$, which means it can be trained infinitely, similar to the Stable stage of WSD, but it automatically balances the coefficients of the gradient at each step. However, it also has a drawback: when $s \to \infty$, it tends to 0. From *«Asymptotic Estimation of AdamW's Weight RMS (Part 2)»*, we know that Weight RMS will tend to $\lim_{s \to \infty} \eta_s / 2\lambda_s$, so this drawback may bring the risk of weight collapse.
 
-To solve this problem, we can consider letting $\lambda_s = \alpha \eta_s$, where $\alpha = \lambda_{\max} / \eta_{\max}$ is a constant. In this case, we can solve:
+To solve this problem, we can consider letting $\lambda_s = \alpha \eta_s$, where $\alpha = \lambda_{\max} / \eta_{\max}$ is a constant. In this case, we perform a similar derivation:
+1.  Substitute $\lambda = \alpha \eta$ into the ODE: $\alpha \eta^2 + \frac{\dot{\eta}}{\eta} = 0 \implies \dot{\eta} = -\alpha \eta^3$.
+2.  Integrate $\eta^{-3} d\eta = -\alpha dt$: the left side becomes $-\frac{1}{2}\eta^{-2}$.
+3.  Solving for $\eta$ yields an **inverse square root** relationship.
 
 $$
 \eta_s \approx \frac{\eta_{\max}}{\sqrt{2 \lambda_{\max} \eta_{\max} s + 1}}, \quad \lambda_s \approx \frac{\lambda_{\max}}{\sqrt{2 \lambda_{\max} \eta_{\max} s + 1}} \tag{17}
 $$
+
 
 Correspondingly, $e^{\kappa_s} \approx \sqrt{2 \lambda_{\max} \eta_{\max} s + 1}$, $e^{\kappa_s} \eta_s \approx \eta_{\max}$, $z_t \approx \eta_{\max} t$, and $\bar{\beta}_1(j,t) = \bar{\beta}_2(j,t) \approx 1/t$.
 
