@@ -76,10 +76,6 @@ export default function Home() {
                       {tag}
                     </span>
                   ))}
-                  <span className="text-[10px] uppercase tracking-wider bg-green-500/10 text-green-500 px-2 py-1 rounded-md font-bold border border-green-500/20 flex items-center gap-1">
-                    <span className="w-1 h-1 bg-green-500 rounded-full" />
-                    100% Human
-                  </span>
                 </div>
               </article>
             </Link>
